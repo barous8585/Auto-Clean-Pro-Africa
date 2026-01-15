@@ -1,10 +1,12 @@
 import streamlit as st
+
 from auth import login
 from admin_dashboard import admin_dashboard
 from employee_dashboard import employee_dashboard
 
 st.set_page_config(
-    page_title="Étudiant Nettoyeur",
+    page_title="Auto Clean Pro",
+    page_icon="🚗",
     layout="wide"
 )
 
@@ -14,7 +16,7 @@ if "authenticated" not in st.session_state:
 
 # SIDEBAR
 with st.sidebar:
-    st.title("🧼 Étudiant Nettoyeur")
+    st.title("🚗 Auto Clean Pro")
 
     if st.session_state.get("authenticated"):
         st.write(f"👤 {st.session_state.get('username')}")

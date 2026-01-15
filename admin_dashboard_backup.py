@@ -7,11 +7,14 @@ from security import hash_password
 
 
 def admin_dashboard():
-    st.title("📊 Dashboard Administrateur")
+    st.title("Dashboard Admin")
 
     conn = get_connection()
     cursor = conn.cursor()
 
+    # =========================
+    # CRÉATION EMPLOYÉ
+    # =========================
     st.subheader("👷 Créer un employé")
 
     emp_username = st.text_input("Nom d'utilisateur employé")
@@ -25,94 +28,102 @@ def admin_dashboard():
                     "INSERT INTO users (username, password, role) VALUES (?, ?, 'employee')",
                     (emp_username, hashed_pw)
                 )
+
                 conn.commit()
                 st.success("✅ Employé créé avec succès")
-            except Exception as e:
-                st.error(f"❌ Erreur : {str(e)}")
+            except:
+                st.error("❌ Ce nom d'utilisateur existe déjà")
         else:
             st.warning("⚠️ Remplis tous les champs")
 
     st.divider()
 
+    # =========================
+    # AJOUT SERVICE
+    # =========================
     st.subheader("🧼 Ajouter un service")
 
     service_name = st.text_input("Nom du service")
-    service_price = st.number_input("Prix (FCFA)", min_value=0)
+    service_price = st.number_input("Prix", min_value=0)
 
     if st.button("Ajouter le service"):
-        if service_name:
-            cursor.execute(
-                "INSERT INTO services (name, price) VALUES (?, ?)",
-                (service_name, service_price)
-            )
-            conn.commit()
-            st.success("✅ Service ajouté")
-        else:
-            st.warning("⚠️ Nom du service obligatoire")
+        cursor.execute(
+            "INSERT INTO services (name, price) VALUES (?, ?)",
+            (service_name, service_price)
+        )
+        conn.commit()
+        st.success("Service ajouté")
 
     st.divider()
 
+    # =========================
+    # CRÉATION MISSION
+    # =========================
     st.subheader("📋 Créer une mission")
 
+    # Clients
     client_name = st.text_input("Nom du client")
 
+    # Services
     cursor.execute("SELECT id, name FROM services")
     services = cursor.fetchall()
-    
-    if not services:
-        st.warning("⚠️ Aucun service disponible. Veuillez d'abord créer un service.")
-    else:
-        service_dict = {s[1]: s[0] for s in services}
-        selected_service = st.selectbox("Service", list(service_dict.keys()))
+    service_dict = {s[1]: s[0] for s in services}
+    selected_service = st.selectbox("Service", list(service_dict.keys()))
 
-        cursor.execute("SELECT id, username FROM users WHERE role='employee'")
-        employees = cursor.fetchall()
-        
-        if not employees:
-            st.warning("⚠️ Aucun employé disponible. Veuillez d'abord créer un employé.")
+    # Employés
+    cursor.execute("SELECT id, username FROM users WHERE role='employee'")
+    employees = cursor.fetchall()
+    employee_dict = {e[1]: e[0] for e in employees}
+    selected_employee = st.selectbox("Employé", list(employee_dict.keys()))
+
+    mission_date = st.date_input("Date de la mission", value=date.today())
+    status = st.selectbox("Statut", ["Prévu", "Fait"])
+
+    if st.button("Créer la mission"):
+        if client_name:
+            cursor.execute("""
+                INSERT INTO jobs (client_name, service_id, employee_id, date, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                client_name,
+                service_dict[selected_service],
+                employee_dict[selected_employee],
+                mission_date.strftime("%Y-%m-%d"),
+                status
+            ))
+            conn.commit()
+            st.success("✅ Mission créée avec succès")
         else:
-            employee_dict = {e[1]: e[0] for e in employees}
-            selected_employee = st.selectbox("Employé", list(employee_dict.keys()))
-
-            mission_date = st.date_input("Date de la mission", value=date.today())
-            status = st.selectbox("Statut", ["Prévu", "Fait"])
-
-            if st.button("Créer la mission"):
-                if client_name:
-                    cursor.execute("""
-                        INSERT INTO jobs (client_name, service_id, employee_id, date, status)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (
-                        client_name,
-                        service_dict[selected_service],
-                        employee_dict[selected_employee],
-                        mission_date.strftime("%Y-%m-%d"),
-                        status
-                    ))
-                    conn.commit()
-                    st.success("✅ Mission créée avec succès")
-                else:
-                    st.warning("⚠️ Nom du client obligatoire")
+            st.warning("⚠️ Nom du client obligatoire")
 
     st.divider()
     st.subheader("📊 Statistiques")
 
+    # -------------------------
+    # CHIFFRE D'AFFAIRES TOTAL
+    # -------------------------
     cursor.execute("""
         SELECT SUM(services.price)
         FROM jobs
         JOIN services ON jobs.service_id = services.id
-        WHERE jobs.status IN ('Fait', 'Validée')
+        WHERE jobs.status = 'Fait'
     """)
     total_ca = cursor.fetchone()[0]
     total_ca = total_ca if total_ca else 0
 
-    st.metric("💰 Chiffre d'affaires total", f"{total_ca:,} FCFA")
+    st.metric("💰 Chiffre d'affaires total", f"{total_ca} FCFA")
 
+    # -------------------------
+    # NOMBRE DE MISSIONS
+    # -------------------------
     cursor.execute("SELECT COUNT(*) FROM jobs")
     total_jobs = cursor.fetchone()[0]
 
     st.metric("📋 Nombre total de missions", total_jobs)
 
+    # -------------------------
+    # MISSIONS PAR EMPLOYÉ
+    # -------------------------
     st.subheader("👷 Missions par employé")
 
     cursor.execute("""
@@ -123,12 +134,12 @@ def admin_dashboard():
     """)
     stats_employees = cursor.fetchall()
 
-    if stats_employees:
-        for emp in stats_employees:
-            st.write(f"• {emp[0]} : {emp[1]} mission(s)")
-    else:
-        st.info("Aucune donnée disponible")
+    for emp in stats_employees:
+        st.write(f"• {emp[0]} : {emp[1]} mission(s)")
 
+    # -------------------------
+    # SERVICES LES PLUS UTILISÉS
+    # -------------------------
     st.subheader("🧼 Services les plus demandés")
 
     cursor.execute("""
@@ -140,11 +151,8 @@ def admin_dashboard():
     """)
     stats_services = cursor.fetchall()
 
-    if stats_services:
-        for s in stats_services:
-            st.write(f"• {s[0]} : {s[1]} fois")
-    else:
-        st.info("Aucune donnée disponible")
+    for s in stats_services:
+        st.write(f"• {s[0]} : {s[1]} fois")
 
     st.divider()
     st.subheader("📤 Export des données")
@@ -185,6 +193,7 @@ def admin_dashboard():
     st.divider()
     st.header("🕘 Suivi des présences des employés")
 
+    # 🔍 Filtres
     selected_date = st.date_input(
         "Filtrer par date",
         value=date.today()
@@ -217,14 +226,17 @@ def admin_dashboard():
     st.divider()
     st.header("📊 Statistiques RH (Présence / Retard / Absence)")
 
+    # Sélection du mois
     selected_month = st.date_input(
         "Sélectionner un mois",
-        value=date.today(),
-        key="month_selector"
+        value=date.today()
     )
 
     month_str = selected_month.strftime("%Y-%m")
 
+    # =========================
+    # STATS GLOBALES DU MOIS
+    # =========================
     cursor.execute("""
         SELECT status, COUNT(*)
         FROM attendance
@@ -243,6 +255,9 @@ def admin_dashboard():
     col2.metric("🟠 Retards", late)
     col3.metric("🔴 Absences", absent)
 
+    # =========================
+    # STATS PAR EMPLOYÉ
+    # =========================
     st.subheader("👷 Détail par employé")
 
     cursor.execute("""
@@ -300,7 +315,6 @@ def admin_dashboard():
                     )
                     conn.commit()
                     st.success("Mission validée")
-                    st.rerun()
 
             with col2:
                 if st.button("❌ Refuser", key=f"refuse_{j[0]}"):
@@ -310,8 +324,6 @@ def admin_dashboard():
                     )
                     conn.commit()
                     st.warning("Mission refusée")
-                    st.rerun()
-
     st.divider()
     st.header("🧾 Validation des preuves terrain")
 
@@ -358,7 +370,6 @@ def admin_dashboard():
                     )
                     conn.commit()
                     st.success("Mission validée et verrouillée")
-                    st.rerun()
 
             with col2:
                 if st.button("❌ Refuser (corriger)", key=f"proof_no_{j[0]}"):
@@ -367,7 +378,13 @@ def admin_dashboard():
                         (j[0],)
                     )
                     conn.commit()
-                    st.warning("Preuve refusée — retour à l'employé")
-                    st.rerun()
+                    st.warning("Preuve refusée — retour à l’employé")
+                else:
+                    photo_before = st.file_uploader(...)
+                    photo_after = st.file_uploader(...)
+                    note = st.text_area(...)
+
+                    if st.button("📤 Envoyer les preuves"):
+                        ...
 
     conn.close()

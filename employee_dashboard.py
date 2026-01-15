@@ -1,6 +1,7 @@
 import streamlit as st
 from database import get_connection
 from datetime import date
+import base64
 
 
 def employee_dashboard(user_id):
@@ -9,49 +10,40 @@ def employee_dashboard(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # =========================
-    # STATISTIQUES PERSONNELLES
-    # =========================
     st.subheader("📊 Mes performances")
 
-    # Total missions
     cursor.execute(
         "SELECT COUNT(*) FROM jobs WHERE employee_id = ?",
         (user_id,)
     )
     total_jobs = cursor.fetchone()[0]
 
-    # Missions faites
     cursor.execute(
-        "SELECT COUNT(*) FROM jobs WHERE employee_id = ? AND status = 'À valider'",
+        "SELECT COUNT(*) FROM jobs WHERE employee_id = ? AND status IN ('Validée', 'Fait')",
         (user_id,)
     )
     done_jobs = cursor.fetchone()[0]
 
-
-    # Chiffre d'affaires généré
     cursor.execute("""
         SELECT SUM(services.price)
         FROM jobs
         JOIN services ON jobs.service_id = services.id
-        WHERE jobs.employee_id = ? AND jobs.status = 'Fait'
+        WHERE jobs.employee_id = ? AND jobs.status IN ('Validée', 'Fait')
     """, (user_id,))
     ca = cursor.fetchone()[0]
     ca = ca if ca else 0
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("📋 Missions", total_jobs)
-    col2.metric("✅ Missions faites", done_jobs)
-    col3.metric("💰 CA généré", f"{ca} FCFA")
+    col1.metric("📋 Missions totales", total_jobs)
+    col2.metric("✅ Missions validées", done_jobs)
+    col3.metric("💰 CA généré", f"{ca:,} FCFA")
 
     st.divider()
 
-    st.divider()
     st.subheader("📝 Créer une mission")
 
     client_name = st.text_input("Nom du client")
 
-    # Récupérer les services
     cursor.execute("SELECT id, name FROM services")
     services = cursor.fetchall()
 
@@ -79,20 +71,25 @@ def employee_dashboard(user_id):
                 """, (
                     client_name,
                     service_dict[selected_service],
-                    user_id,  # 👈 assigné automatiquement à l'employé connecté
+                    user_id,
                     mission_date.strftime("%Y-%m-%d"),
                     "En attente"
                 ))
                 conn.commit()
                 st.success("✅ Mission créée avec succès")
+                st.rerun()
 
-    # =========================
-    # HISTORIQUE DES MISSIONS
-    # =========================
+    st.divider()
     st.subheader("🗂️ Mon historique")
 
     cursor.execute("""
-        SELECT jobs.client_name, services.name, services.price, jobs.date, jobs.status
+        SELECT 
+            jobs.id,
+            jobs.client_name, 
+            services.name, 
+            services.price, 
+            jobs.date, 
+            jobs.status
         FROM jobs
         JOIN services ON jobs.service_id = services.id
         WHERE jobs.employee_id = ?
@@ -103,72 +100,109 @@ def employee_dashboard(user_id):
 
     if missions:
         for m in missions:
+            job_id = m[0]
+            client = m[1]
+            service = m[2]
+            price = m[3]
+            date_mission = m[4]
+            job_status = m[5]
+            
+            status_emoji = {
+                "En attente": "⏳",
+                "Prévu": "📅",
+                "Fait": "✅",
+                "À valider": "🔍",
+                "Validée": "✅",
+                "Refusé": "❌"
+            }.get(job_status, "📋")
+            
             st.write(
-                f"👤 {m[0]} | 🧼 {m[1]} | 💰 {m[2]} FCFA | 📅 {m[3]} | ✅ {m[4]}"
+                f"{status_emoji} **{client}** | 🧼 {service} | 💰 {price:,} FCFA | 📅 {date_mission} | {job_status}"
             )
-            job_status = m[4]  # statut de la mission
-            job_id = m[0]  # ou l'id si tu l’as dans la requête
-            if job_status in ["À valider", "Validée"]:
-                st.info("🔒 Preuves déjà envoyées. En attente de validation admin.")
+            
+            if job_status == "Prévu":
+                with st.expander(f"📤 Envoyer les preuves pour {client}"):
+                    photo_before = st.file_uploader(
+                        "Photo AVANT le nettoyage", 
+                        type=["jpg", "jpeg", "png"],
+                        key=f"before_{job_id}"
+                    )
+                    photo_after = st.file_uploader(
+                        "Photo APRÈS le nettoyage", 
+                        type=["jpg", "jpeg", "png"],
+                        key=f"after_{job_id}"
+                    )
+                    note = st.text_area(
+                        "Commentaire (optionnel)",
+                        key=f"note_{job_id}"
+                    )
 
+                    if st.button("📤 Envoyer les preuves", key=f"submit_{job_id}"):
+                        if photo_before and photo_after:
+                            before_bytes = base64.b64encode(photo_before.read()).decode()
+                            after_bytes = base64.b64encode(photo_after.read()).decode()
+                            
+                            cursor.execute("""
+                                UPDATE jobs 
+                                SET photo_before = ?, photo_after = ?, employee_note = ?, status = 'À valider'
+                                WHERE id = ?
+                            """, (before_bytes, after_bytes, note, job_id))
+                            conn.commit()
+                            st.success("✅ Preuves envoyées ! En attente de validation admin.")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ Les 2 photos sont obligatoires.")
+            
+            elif job_status in ["À valider", "Validée"]:
+                st.info("🔒 Preuves déjà envoyées. En attente de validation admin.")
 
     else:
         st.info("Aucune mission pour le moment")
+
+    st.divider()
     st.subheader("🕘 Enregistrement de présence")
 
-    # Récupérer les services
     cursor.execute("SELECT id, name FROM services")
     services = cursor.fetchall()
 
-    service_dict = {s[1]: s[0] for s in services}
-    service_selected = st.selectbox("Service exécuté", list(service_dict.keys()))
+    if services:
+        service_dict = {s[1]: s[0] for s in services}
+        service_selected = st.selectbox("Service exécuté", list(service_dict.keys()))
 
-    status = st.radio(
-        "Statut du jour",
-        ["Présent", "En retard", "Absent"]
-    )
+        status = st.radio(
+            "Statut du jour",
+            ["Présent", "En retard", "Absent"]
+        )
 
-    comment = st.text_area("Commentaire (optionnel)")
+        comment = st.text_area("Commentaire (optionnel)")
 
-    if st.button("Enregistrer ma présence"):
-        today = date.today().strftime("%Y-%m-%d")
+        if st.button("Enregistrer ma présence"):
+            today = date.today().strftime("%Y-%m-%d")
 
-        # Vérifier s'il existe déjà une présence aujourd'hui
-        cursor.execute("""
-            SELECT id FROM attendance
-            WHERE employee_id = ? AND date = ?
-        """, (user_id, today))
-
-        already_exists = cursor.fetchone()
-
-        if already_exists:
-            st.warning("⚠️ Vous avez déjà enregistré votre présence aujourd’hui.")
-        else:
             cursor.execute("""
-                INSERT INTO attendance (employee_id, service_id, status, date, comment)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                user_id,
-                service_dict[service_selected],
-                status,
-                today,
-                comment
-            ))
-            conn.commit()
-            st.success("✅ Présence enregistrée avec succès")
+                SELECT id FROM attendance
+                WHERE employee_id = ? AND date = ?
+            """, (user_id, today))
 
-        cursor.execute("""
-            INSERT INTO attendance (employee_id, service_id, status, date, comment)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            user_id,
-            service_dict[service_selected],
-            status,
-            date.today().strftime("%Y-%m-%d"),
-            comment
-        ))
-        conn.commit()
-        st.success("✅ Présence enregistrée avec succès")
+            already_exists = cursor.fetchone()
+
+            if already_exists:
+                st.warning("⚠️ Vous avez déjà enregistré votre présence aujourd'hui.")
+            else:
+                cursor.execute("""
+                    INSERT INTO attendance (employee_id, service_id, status, date, comment)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    user_id,
+                    service_dict[service_selected],
+                    status,
+                    today,
+                    comment
+                ))
+                conn.commit()
+                st.success("✅ Présence enregistrée avec succès")
+                st.rerun()
+    
     st.divider()
     st.subheader("📅 Mon historique de présence")
 
@@ -178,6 +212,7 @@ def employee_dashboard(user_id):
         JOIN services ON attendance.service_id = services.id
         WHERE attendance.employee_id = ?
         ORDER BY attendance.date DESC
+        LIMIT 20
     """, (user_id,))
 
     records = cursor.fetchall()
@@ -189,6 +224,5 @@ def employee_dashboard(user_id):
             )
     else:
         st.info("Aucun enregistrement pour le moment")
-
 
     conn.close()

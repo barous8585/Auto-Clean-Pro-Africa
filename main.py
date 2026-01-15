@@ -1,8 +1,13 @@
 import streamlit as st
+import os
 
 from auth import login
 from admin_dashboard import admin_dashboard
 from employee_dashboard import employee_dashboard
+
+# Initialiser la base de données si elle n'existe pas
+if not os.path.exists("database.db"):
+    import init_db
 
 st.set_page_config(
     page_title="Auto Clean Pro",

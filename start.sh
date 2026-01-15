@@ -1,7 +1,11 @@
 #!/bin/bash
 
-echo "🚗 Auto Clean Pro - Démarrage"
-echo "================================"
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                                                              ║"
+echo "║          🚗 AUTO CLEAN PRO V3.0 - DÉMARRAGE                 ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
 
 if ! command -v python3 &> /dev/null; then
     echo "❌ Python 3 n'est pas installé"
@@ -16,16 +20,24 @@ fi
 echo "🚀 Lancement de l'application..."
 echo ""
 echo "📱 L'application sera accessible sur:"
-echo "   👉 http://localhost:8502"
+echo "   👉 http://localhost:8506"
 echo ""
 echo "🔐 Compte admin par défaut:"
 echo "   Username: admin"
 echo "   Password: admin123"
 echo ""
-echo "⚠️  Changez le mot de passe après la première connexion!"
+echo "📌 NOUVEAU DANS LA VERSION 3.0:"
+echo "   ✅ Gestion complète des clients"
+echo "   ✅ Système de paiements intégré"
+echo "   ✅ Dashboard professionnel à 7 onglets"
+echo "   ✅ Statistiques avancées en temps réel"
+echo "   ✅ Interface employé améliorée"
+echo "   ✅ Design moderne et responsive"
+echo ""
+echo "⚠️  Changez le mot de passe admin après la première connexion!"
 echo ""
 echo "Pour arrêter l'application, appuyez sur Ctrl+C"
-echo "================================"
+echo "══════════════════════════════════════════════════════════════"
 echo ""
 
-python3 -m streamlit run main.py --server.port 8502
+python3 -m streamlit run main.py --server.port 8506

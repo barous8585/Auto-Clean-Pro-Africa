@@ -162,7 +162,7 @@ auto-clean-pro/
 ### Option 1 : Local (Gratuit)
 ```bash
 ./start.sh
-# Accès: http://localhost:8502
+# Accès: http://localhost:8505
 ```
 
 ### Option 2 : Cloud (Streamlit Cloud)

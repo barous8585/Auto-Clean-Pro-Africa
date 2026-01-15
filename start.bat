@@ -17,7 +17,7 @@ if not exist "database.db" (
 echo 🚀 Lancement de l'application...
 echo.
 echo 📱 L'application sera accessible sur:
-echo    👉 http://localhost:8502
+echo    👉 http://localhost:8505
 echo.
 echo 🔐 Compte admin par défaut:
 echo    Username: admin
@@ -29,5 +29,5 @@ echo Pour arrêter l'application, appuyez sur Ctrl+C
 echo ================================
 echo.
 
-python -m streamlit run main.py --server.port 8502
+python -m streamlit run main.py --server.port 8505
 pause

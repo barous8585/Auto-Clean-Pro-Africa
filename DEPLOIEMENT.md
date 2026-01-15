@@ -27,9 +27,9 @@
 
 **Étapes:**
 1. Installez l'application sur un ordinateur principal
-2. Lancez avec : `streamlit run main.py --server.port 8502`
+2. Lancez avec : `streamlit run main.py --server.port 8505`
 3. Notez l'adresse IP de l'ordinateur (ex: 192.168.1.100)
-4. Les employés accèdent via : `http://192.168.1.100:8502`
+4. Les employés accèdent via : `http://192.168.1.100:8505`
 
 #### Option B : Déploiement Cloud (Streamlit Cloud)
 **Avantages:** Accessible partout, pas de maintenance serveur

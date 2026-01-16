@@ -1,9 +1,8 @@
 import streamlit as st
 import os
 import sys
-import traceback
 
-# Configuration de la page AVANT tout le reste
+# Configuration de la page EN PREMIER (obligatoire avant tout st.xxx)
 st.set_page_config(
     page_title="Auto Clean Pro",
     page_icon="🚗",
@@ -11,31 +10,42 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialiser la base de données AVANT tout import
-try:
+# Initialiser la base de données
+def init_database():
+    """Initialiser ou migrer la base de données"""
     if not os.path.exists("database.db"):
-        st.info("🔄 Initialisation de la base de données...")
-        import init_db
-        st.success("✅ Base de données créée avec succès")
+        try:
+            import init_db
+            return True, "Base de données créée avec succès"
+        except Exception as e:
+            return False, f"Erreur création DB: {e}"
     else:
-        # Migrer la base de données existante vers l'édition africaine
-        import migrate_db
-        migrate_db.migrate_database()
-except Exception as e:
-    st.error(f"❌ Erreur d'initialisation DB: {e}")
-    st.code(traceback.format_exc())
+        try:
+            import migrate_db
+            migrate_db.migrate_database()
+            return True, "Migration vérifiée"
+        except Exception as e:
+            return True, f"Migration: {e}"  # True car DB existe déjà
+
+# Initialisation
+db_ok, db_msg = init_database()
+
+if not db_ok:
+    st.error(f"❌ {db_msg}")
     st.stop()
 
-# Imports des modules après initialisation DB
+# Imports des modules
 try:
     from auth import login
     from admin_dashboard import admin_dashboard
     from employee_dashboard import employee_dashboard
 except Exception as e:
-    st.error(f"❌ Erreur lors de l'import des modules: {e}")
+    st.error(f"❌ Erreur import: {e}")
+    import traceback
     st.code(traceback.format_exc())
     st.stop()
 
+# CSS personnalisé
 custom_css = """
 <style>
     .stApp {
@@ -86,9 +96,11 @@ custom_css = """
 
 st.markdown(custom_css, unsafe_allow_html=True)
 
+# Initialiser la session
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
+# Sidebar
 with st.sidebar:
     st.title("🚗 Auto Clean Pro")
     st.caption("Solution professionnelle de gestion")
@@ -106,6 +118,7 @@ with st.sidebar:
     else:
         st.info("Veuillez vous connecter")
 
+# Routing
 if not st.session_state["authenticated"]:
     login()
 else:

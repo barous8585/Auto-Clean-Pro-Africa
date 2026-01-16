@@ -5,13 +5,17 @@ from database import get_connection
 from datetime import date, datetime, timedelta
 from security import hash_password
 import base64
+from african_features import *
+from african_dashboard import manage_inventory, manage_loyalty_program, manage_cash_book, manage_app_settings
 
 
 def admin_dashboard():
-    st.title("📊 Dashboard Administrateur")
+    st.title("📊 Dashboard Administrateur - Édition Africaine 🌍")
     
     conn = get_connection()
     cursor = conn.cursor()
+    
+    check_inventory_alerts_notification(cursor)
     
     tabs = st.tabs([
         "📈 Vue d'ensemble",
@@ -21,7 +25,11 @@ def admin_dashboard():
         "📋 Missions",
         "💰 Paiements",
         "📊 Rapports",
-        "⚙️ Mon Profil"
+        "📦 Inventaire",
+        "🎁 Fidélité",
+        "💼 Caisse",
+        "⚙️ Paramètres",
+        "👤 Mon Profil"
     ])
     
     with tabs[0]:
@@ -46,9 +54,29 @@ def admin_dashboard():
         show_reports(cursor, conn)
     
     with tabs[7]:
+        manage_inventory(cursor, conn)
+    
+    with tabs[8]:
+        manage_loyalty_program(cursor, conn)
+    
+    with tabs[9]:
+        manage_cash_book(cursor, conn)
+    
+    with tabs[10]:
+        manage_app_settings(cursor, conn)
+    
+    with tabs[11]:
         manage_admin_profile(cursor, conn)
     
     conn.close()
+
+
+def check_inventory_alerts_notification(cursor):
+    """Afficher les alertes de stock bas dans la barre latérale"""
+    alerts = check_inventory_alerts()
+    if alerts:
+        with st.sidebar:
+            st.warning(f"⚠️ {len(alerts)} produit(s) en rupture de stock")
 
 
 def show_overview(cursor):

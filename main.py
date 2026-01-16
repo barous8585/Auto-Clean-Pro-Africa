@@ -1,17 +1,28 @@
 import streamlit as st
 import os
+import sys
 
+# Initialiser la base de données AVANT tout import
+if not os.path.exists("database.db"):
+    try:
+        import init_db
+        print("✅ Base de données créée avec succès")
+    except Exception as e:
+        print(f"❌ Erreur lors de la création de la base de données: {e}")
+        sys.exit(1)
+else:
+    # Migrer la base de données existante vers l'édition africaine
+    try:
+        import migrate_db
+        migrate_db.migrate_database()
+        print("✅ Migration vérifiée")
+    except Exception as e:
+        print(f"⚠️ Avertissement migration: {e}")
+
+# Imports des modules après initialisation DB
 from auth import login
 from admin_dashboard import admin_dashboard
 from employee_dashboard import employee_dashboard
-
-# Initialiser la base de données si elle n'existe pas
-if not os.path.exists("database.db"):
-    import init_db
-else:
-    # Migrer la base de données existante vers l'édition africaine
-    import migrate_db
-    migrate_db.migrate_database()
 
 st.set_page_config(
     page_title="Auto Clean Pro",

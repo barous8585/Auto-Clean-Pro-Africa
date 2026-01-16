@@ -1,35 +1,40 @@
 import streamlit as st
 import os
 import sys
+import traceback
 
-# Initialiser la base de données AVANT tout import
-if not os.path.exists("database.db"):
-    try:
-        import init_db
-        print("✅ Base de données créée avec succès")
-    except Exception as e:
-        print(f"❌ Erreur lors de la création de la base de données: {e}")
-        sys.exit(1)
-else:
-    # Migrer la base de données existante vers l'édition africaine
-    try:
-        import migrate_db
-        migrate_db.migrate_database()
-        print("✅ Migration vérifiée")
-    except Exception as e:
-        print(f"⚠️ Avertissement migration: {e}")
-
-# Imports des modules après initialisation DB
-from auth import login
-from admin_dashboard import admin_dashboard
-from employee_dashboard import employee_dashboard
-
+# Configuration de la page AVANT tout le reste
 st.set_page_config(
     page_title="Auto Clean Pro",
     page_icon="🚗",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialiser la base de données AVANT tout import
+try:
+    if not os.path.exists("database.db"):
+        st.info("🔄 Initialisation de la base de données...")
+        import init_db
+        st.success("✅ Base de données créée avec succès")
+    else:
+        # Migrer la base de données existante vers l'édition africaine
+        import migrate_db
+        migrate_db.migrate_database()
+except Exception as e:
+    st.error(f"❌ Erreur d'initialisation DB: {e}")
+    st.code(traceback.format_exc())
+    st.stop()
+
+# Imports des modules après initialisation DB
+try:
+    from auth import login
+    from admin_dashboard import admin_dashboard
+    from employee_dashboard import employee_dashboard
+except Exception as e:
+    st.error(f"❌ Erreur lors de l'import des modules: {e}")
+    st.code(traceback.format_exc())
+    st.stop()
 
 custom_css = """
 <style>

@@ -8,6 +8,10 @@ from employee_dashboard import employee_dashboard
 # Initialiser la base de données si elle n'existe pas
 if not os.path.exists("database.db"):
     import init_db
+else:
+    # Migrer la base de données existante vers l'édition africaine
+    import migrate_db
+    migrate_db.migrate_database()
 
 st.set_page_config(
     page_title="Auto Clean Pro",
